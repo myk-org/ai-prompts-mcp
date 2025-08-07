@@ -18,9 +18,21 @@ class TestMCPServerIntegration:
         assert hasattr(mcp, "_prompt_manager")
         assert hasattr(mcp, "run")
 
-    def test_prompt_registration_integration(self):
+    async def test_prompt_registration_integration(self):
         """Test that all prompts are properly registered with the server."""
-        # Get registered prompts
+        # Get registered prompts using the public API
+        prompt_dict = await mcp.get_prompts()
+
+        # Verify all expected prompts are registered
+        expected_prompts = ["github-coderabbitai-review-handler", "commit", "github-review-handler"]
+
+        for prompt_name in expected_prompts:
+            assert prompt_name in prompt_dict
+
+    def test_prompt_registration_integration_sync(self):
+        """Test that all prompts are properly registered with the server (synchronous fallback)."""
+        # This test provides a fallback that directly checks the manager's internal state
+        # when async testing is not available. This demonstrates the fragility of the approach.
         prompt_dict = mcp._prompt_manager._prompts
 
         # Verify all expected prompts are registered
@@ -69,7 +81,8 @@ Additional instructions here."""
 
         # Mock the path resolution to use our temp directory
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
 
             # Test loading prompt with scripts
             result = load_prompt_from_markdown("test-integration", ["folder1/script1.sh", "folder2/script2.sh"])
@@ -77,8 +90,11 @@ Additional instructions here."""
         # Verify the result
         assert "# Integration Test Prompt" in result
         assert "{{SCRIPT_PATHS}}" not in result
-        assert "folder1/script1.sh" in result
-        assert "folder2/script2.sh" in result
+        # Check for absolute paths since get_script_path returns absolute paths
+        expected_script1_path = str(temp_dir / "scripts" / "folder1" / "script1.sh")
+        expected_script2_path = str(temp_dir / "scripts" / "folder2" / "script2.sh")
+        assert expected_script1_path in result
+        assert expected_script2_path in result
         assert "Additional instructions here." in result
         # Frontmatter should be stripped
         assert "title: Test Integration Prompt" not in result
@@ -98,7 +114,8 @@ Just plain instructions."""
         prompt_file.write_text(prompt_content, encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("simple-prompt")
 
         assert "# Simple Prompt" in result
@@ -154,12 +171,13 @@ class TestErrorHandlingIntegration:
     def test_missing_prompt_file_integration(self, temp_dir):
         """Test handling of missing prompt files."""
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("nonexistent-prompt")
 
         assert "Error: Prompt file 'nonexistent-prompt.md' not found" in result
 
-    def test_prompt_function_with_missing_file(self, temp_dir):
+    def test_prompt_function_attributes_exist(self, temp_dir):
         """Test that prompt functions exist and have proper structure."""
         # Test that the prompt functions exist and are properly configured
         assert main_module.commit.name == "commit"
@@ -175,7 +193,8 @@ class TestErrorHandlingIntegration:
         prompt_file.write_text("", encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("malformed")
 
         # Should handle empty file gracefully
@@ -196,7 +215,8 @@ description: This file has no content after frontmatter
         prompt_file.write_text(frontmatter_only, encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("frontmatter-only")
 
         # Should return empty string since there's no content after frontmatter
@@ -223,7 +243,8 @@ This content should still be accessible."""
         prompt_file.write_text(malformed_yaml, encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("malformed-yaml")
 
         # Should still return content after frontmatter, even if YAML is malformed
@@ -250,7 +271,8 @@ Content continues here."""
         prompt_file.write_text(incomplete_frontmatter, encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("incomplete-frontmatter")
 
         # Should treat everything after the opening delimiter as content
@@ -271,7 +293,8 @@ Content continues here."""
         prompt_file.write_bytes(invalid_utf8_bytes)
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             # Current implementation raises UnicodeDecodeError for invalid UTF-8
             # This test documents the current behavior - in the future, the implementation
             # could be enhanced to handle encoding errors gracefully
@@ -309,7 +332,8 @@ End of large content."""
         prompt_file.write_text(large_content, encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("large-file")
 
         # Should handle large files without issues
@@ -332,7 +356,8 @@ End of large content."""
         prompt_file.write_text(delimiters_only, encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("delimiters-only")
 
         # Should return empty string since there's no content
@@ -365,7 +390,8 @@ More content here."""
         prompt_file.write_text(multiple_frontmatter, encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
             result = load_prompt_from_markdown("multiple-frontmatter")
 
         # Should only strip the first frontmatter section
@@ -421,7 +447,7 @@ class TestServerLifecycle:
 class TestPerformanceIntegration:
     """Performance-related integration tests."""
 
-    def test_prompt_loading_performance(self, temp_dir):
+    def test_prompt_loading_performance(self, temp_dir, performance_thresholds):
         """Test that prompt loading performs reasonably well."""
         import time
 
@@ -450,19 +476,23 @@ More content here."""
         prompt_file.write_text(large_content, encoding="utf-8")
 
         with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_path.return_value.parent.parent = temp_dir
+            mock_instance = mock_path.return_value
+            mock_instance.parent.parent = temp_dir
 
             start_time = time.time()
             result = load_prompt_from_markdown("large-prompt")
             end_time = time.time()
 
-        # Should complete within reasonable time (adjust threshold as needed)
-        assert end_time - start_time < 1.0  # 1 second threshold
+        # Should complete within reasonable time (configurable threshold)
+        threshold = performance_thresholds["prompt_loading"]
+        assert end_time - start_time < threshold, (
+            f"Prompt loading took {end_time - start_time:.3f}s, exceeding threshold of {threshold}s"
+        )
         assert len(result) > 1000  # Should have loaded substantial content
 
-    def test_multiple_prompt_calls_performance(self):
-        """Test that prompt objects are properly initialized."""
-        # Simplified performance test - just verify prompt objects exist and are usable
+    def test_multiple_prompt_attributes(self):
+        """Test that prompt objects are properly initialized and have required attributes."""
+        # Verify prompt objects exist and are usable
         prompts = [
             main_module.commit,
             main_module.github_coderabbitai_review_handler,
@@ -474,3 +504,105 @@ More content here."""
             assert prompt.name is not None
             assert prompt.description is not None
             assert prompt.enabled is True
+
+    def test_multiple_prompt_calls_performance(self, performance_thresholds):
+        """Test performance of accessing multiple prompt attributes and properties."""
+        import time
+
+        prompts = [
+            main_module.commit,
+            main_module.github_coderabbitai_review_handler,
+            main_module.github_review_handler,
+        ]
+
+        # Measure time for accessing prompt attributes multiple times
+        start_time = time.time()
+
+        # Access prompt attributes multiple times to measure performance
+        for _ in range(100):  # 100 iterations for meaningful timing
+            for prompt in prompts:
+                # Access common attributes that might be used frequently
+                _ = prompt.name
+                _ = prompt.description
+                _ = prompt.enabled
+                _ = hasattr(prompt, "name")
+                _ = str(prompt.description)
+
+        end_time = time.time()
+
+        # Should complete within reasonable time (300 attribute accesses)
+        # This tests the performance of the prompt object attribute access
+        threshold = performance_thresholds["attribute_access"]
+        assert end_time - start_time < threshold, (
+            f"Attribute access took {end_time - start_time:.3f}s for 300 accesses, exceeding threshold of {threshold}s"
+        )
+
+        # Verify that all prompts have expected attributes with meaningful content
+        for prompt in prompts:
+            assert len(prompt.name) > 3  # Should have meaningful names
+            assert len(prompt.description) > 10  # Should have substantial descriptions
+
+
+class TestPromptAccessPatterns:
+    """Demonstrates proper patterns for accessing MCP server data in tests."""
+
+    async def test_prompt_access_via_public_api(self):
+        """Test accessing prompts via the public API (recommended approach)."""
+        # This is the preferred way to access registered prompts in tests
+        # as it uses the public API that won't change with internal refactoring
+        prompts = await mcp.get_prompts()
+
+        assert isinstance(prompts, dict)
+        assert "commit" in prompts
+
+        # Verify specific prompt exists and has expected properties
+        commit_prompt = prompts["commit"]
+        assert commit_prompt.name == "commit"
+        assert "Git Commit" in commit_prompt.description
+
+    async def test_individual_prompt_access(self):
+        """Test accessing individual prompts by name."""
+        # Test the get_prompt method for individual prompt access
+        commit_prompt = await mcp.get_prompt("commit")
+        assert commit_prompt.name == "commit"
+        assert commit_prompt.enabled is True
+
+        # Test error handling for non-existent prompts
+        with pytest.raises(Exception):  # NotFoundError from fastmcp
+            await mcp.get_prompt("non-existent-prompt")
+
+    def test_private_access_antipattern(self):
+        """
+        Demonstrates the fragile pattern of accessing private attributes.
+
+        This test shows why accessing _prompts directly is problematic:
+        1. It breaks encapsulation
+        2. It's brittle to internal refactoring
+        3. It doesn't test the actual API users will use
+        """
+        # This is the pattern to AVOID - accessing private attributes
+        private_prompts = mcp._prompt_manager._prompts
+
+        # While this works, it's testing implementation details rather than behavior
+        assert "commit" in private_prompts
+
+        # If the internal structure changes, this test will break even if
+        # the public API continues to work correctly
+
+    async def test_prompt_functionality_integration(self):
+        """Test the actual functionality of prompts rather than just registration."""
+        # This approach tests behavior rather than internal state
+        prompts = await mcp.get_prompts()
+
+        # Test that we can retrieve and use prompt functions
+        for prompt_name in ["commit", "github-coderabbitai-review-handler", "github-review-handler"]:
+            prompt = prompts[prompt_name]
+
+            # Verify prompt has required attributes for MCP protocol
+            assert hasattr(prompt, "name")
+            assert hasattr(prompt, "description")
+            assert hasattr(prompt, "enabled")
+
+            # Verify the prompt is actually callable/usable
+            assert prompt.enabled is True
+            assert len(prompt.description) > 0
