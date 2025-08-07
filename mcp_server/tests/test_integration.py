@@ -181,6 +181,203 @@ class TestErrorHandlingIntegration:
         # Should handle empty file gracefully
         assert result == ""
 
+    def test_prompt_file_with_only_frontmatter(self, temp_dir):
+        """Test handling of files with only frontmatter and no content."""
+        prompts_dir = temp_dir / "prompts"
+        prompts_dir.mkdir()
+
+        # Create file with only frontmatter
+        frontmatter_only = """---
+title: Only Frontmatter
+description: This file has no content after frontmatter
+---"""
+
+        prompt_file = prompts_dir / "frontmatter-only.md"
+        prompt_file.write_text(frontmatter_only, encoding="utf-8")
+
+        with patch("mcp_server.utils.utils.Path") as mock_path:
+            mock_path.return_value.parent.parent = temp_dir
+            result = load_prompt_from_markdown("frontmatter-only")
+
+        # Should return empty string since there's no content after frontmatter
+        assert result == ""
+
+    def test_prompt_file_with_malformed_yaml_frontmatter(self, temp_dir):
+        """Test handling of files with malformed YAML frontmatter."""
+        prompts_dir = temp_dir / "prompts"
+        prompts_dir.mkdir()
+
+        # Create file with invalid YAML frontmatter
+        malformed_yaml = """---
+title: Malformed YAML
+description: This is a test
+  invalid_indentation: wrong
+not_closed_quote: "this quote is not closed
+---
+
+# Content After Malformed Frontmatter
+
+This content should still be accessible."""
+
+        prompt_file = prompts_dir / "malformed-yaml.md"
+        prompt_file.write_text(malformed_yaml, encoding="utf-8")
+
+        with patch("mcp_server.utils.utils.Path") as mock_path:
+            mock_path.return_value.parent.parent = temp_dir
+            result = load_prompt_from_markdown("malformed-yaml")
+
+        # Should still return content after frontmatter, even if YAML is malformed
+        assert "# Content After Malformed Frontmatter" in result
+        assert "This content should still be accessible." in result
+        # Frontmatter should be stripped even if malformed
+        assert "title: Malformed YAML" not in result
+
+    def test_prompt_file_with_incomplete_frontmatter_delimiters(self, temp_dir):
+        """Test handling of files with incomplete frontmatter delimiters."""
+        prompts_dir = temp_dir / "prompts"
+        prompts_dir.mkdir()
+
+        # Create file with opening frontmatter delimiter but no closing one
+        incomplete_frontmatter = """---
+title: Incomplete Frontmatter
+description: Missing closing delimiter
+
+# This should be treated as content
+
+Content continues here."""
+
+        prompt_file = prompts_dir / "incomplete-frontmatter.md"
+        prompt_file.write_text(incomplete_frontmatter, encoding="utf-8")
+
+        with patch("mcp_server.utils.utils.Path") as mock_path:
+            mock_path.return_value.parent.parent = temp_dir
+            result = load_prompt_from_markdown("incomplete-frontmatter")
+
+        # Should treat everything after the opening delimiter as content
+        # since there's no closing delimiter
+        assert "title: Incomplete Frontmatter" in result
+        assert "# This should be treated as content" in result
+        assert "Content continues here." in result
+
+    def test_prompt_file_with_invalid_utf8_encoding(self, temp_dir):
+        """Test handling of files with invalid UTF-8 encoding."""
+        prompts_dir = temp_dir / "prompts"
+        prompts_dir.mkdir()
+
+        prompt_file = prompts_dir / "invalid-utf8.md"
+
+        # Write bytes that are not valid UTF-8
+        invalid_utf8_bytes = b"# Valid Header\n\nSome content with invalid UTF-8: \xff\xfe\n\nMore content"
+        prompt_file.write_bytes(invalid_utf8_bytes)
+
+        with patch("mcp_server.utils.utils.Path") as mock_path:
+            mock_path.return_value.parent.parent = temp_dir
+            # Current implementation raises UnicodeDecodeError for invalid UTF-8
+            # This test documents the current behavior - in the future, the implementation
+            # could be enhanced to handle encoding errors gracefully
+            with pytest.raises(UnicodeDecodeError):
+                load_prompt_from_markdown("invalid-utf8")
+
+    def test_prompt_file_extremely_large(self, temp_dir):
+        """Test handling of extremely large prompt files."""
+        prompts_dir = temp_dir / "prompts"
+        prompts_dir.mkdir()
+
+        # Create a very large file (but not so large it causes memory issues in tests)
+        large_content = (
+            """---
+title: Large File Test
+description: Testing large file handling
+---
+
+# Large Prompt File
+
+"""
+            + ("A" * 50000)
+            + """
+
+This file contains a lot of repeated content to test handling of large files.
+
+"""
+            + ("B" * 50000)
+            + """
+
+End of large content."""
+        )
+
+        prompt_file = prompts_dir / "large-file.md"
+        prompt_file.write_text(large_content, encoding="utf-8")
+
+        with patch("mcp_server.utils.utils.Path") as mock_path:
+            mock_path.return_value.parent.parent = temp_dir
+            result = load_prompt_from_markdown("large-file")
+
+        # Should handle large files without issues
+        assert "# Large Prompt File" in result
+        assert "End of large content." in result
+        assert len(result) > 100000  # Should contain the large content
+        # Frontmatter should still be stripped
+        assert "title: Large File Test" not in result
+
+    def test_prompt_file_with_only_frontmatter_delimiters(self, temp_dir):
+        """Test handling of files with only frontmatter delimiters but no content."""
+        prompts_dir = temp_dir / "prompts"
+        prompts_dir.mkdir()
+
+        # Create file with just delimiters
+        delimiters_only = """---
+---"""
+
+        prompt_file = prompts_dir / "delimiters-only.md"
+        prompt_file.write_text(delimiters_only, encoding="utf-8")
+
+        with patch("mcp_server.utils.utils.Path") as mock_path:
+            mock_path.return_value.parent.parent = temp_dir
+            result = load_prompt_from_markdown("delimiters-only")
+
+        # Should return empty string since there's no content
+        assert result == ""
+
+    def test_prompt_file_with_multiple_frontmatter_sections(self, temp_dir):
+        """Test handling of files with multiple frontmatter sections."""
+        prompts_dir = temp_dir / "prompts"
+        prompts_dir.mkdir()
+
+        # Create file with multiple frontmatter-like sections
+        multiple_frontmatter = """---
+title: First Frontmatter
+---
+
+# Content Section 1
+
+Some content here.
+
+---
+title: Second Frontmatter
+description: This looks like frontmatter but isn't
+---
+
+# Content Section 2
+
+More content here."""
+
+        prompt_file = prompts_dir / "multiple-frontmatter.md"
+        prompt_file.write_text(multiple_frontmatter, encoding="utf-8")
+
+        with patch("mcp_server.utils.utils.Path") as mock_path:
+            mock_path.return_value.parent.parent = temp_dir
+            result = load_prompt_from_markdown("multiple-frontmatter")
+
+        # Should only strip the first frontmatter section
+        assert "# Content Section 1" in result
+        assert "Some content here." in result
+        assert "# Content Section 2" in result
+        assert "More content here." in result
+        # First frontmatter should be stripped
+        assert "title: First Frontmatter" not in result
+        # Second frontmatter should be preserved as content
+        assert "title: Second Frontmatter" in result
+
 
 class TestServerLifecycle:
     """Integration tests for server lifecycle operations."""

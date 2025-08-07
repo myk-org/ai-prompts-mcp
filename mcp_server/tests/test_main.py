@@ -187,7 +187,13 @@ class TestPrintAvailablePrompts:
 
     @patch("sys.stderr", new_callable=StringIO)
     def test_print_available_prompts_whitespace_description(self, mock_stderr):
-        """Test prompt with whitespace-only description."""
+        """Test prompt with whitespace-only description.
+
+        When a description contains only whitespace, the first line after splitting
+        and stripping will be empty. Since an empty string is falsy, but the
+        original description is truthy, this edge case should result in an empty
+        description line being printed (not "No description available").
+        """
         mock_prompt_info = Mock()
         mock_prompt_info.description = "   \n  \t  \n   "
 
@@ -200,10 +206,29 @@ class TestPrintAvailablePrompts:
 
         output = mock_stderr.getvalue()
 
-        # The first line after splitting and stripping should be empty, leading to "No description available"
-        # But the actual implementation takes the first line, which would be just whitespace
-        # So let's check what actually appears
+        # Verify the prompt name appears
         assert "test-prompt" in output
+
+        # The first line of whitespace-only description becomes empty after strip()
+        # This creates an empty description line in the output
+        lines = output.split("\n")
+        test_prompt_line_idx = None
+        for i, line in enumerate(lines):
+            if "test-prompt" in line:
+                test_prompt_line_idx = i
+                break
+
+        assert test_prompt_line_idx is not None
+        # The next line should be the description line, which should be empty with just indentation
+        # This happens because:
+        # 1. The original description is truthy (contains whitespace)
+        # 2. But split("\n")[0].strip() returns an empty string
+        # 3. The empty string is still printed with indentation
+        if test_prompt_line_idx + 1 < len(lines):
+            desc_line = lines[test_prompt_line_idx + 1]
+            # Should have indentation but no actual description text
+            assert desc_line.strip() == ""
+            assert desc_line == "     "  # Exactly 5 spaces for indentation
 
 
 class TestMCPInstance:

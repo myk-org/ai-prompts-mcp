@@ -72,6 +72,8 @@ def print_available_prompts() -> None:
             if hasattr(prompt_info, "description") and prompt_info.description:
                 # Take first line of description for brevity
                 desc_line = prompt_info.description.split("\n")[0].strip()
+                # Note: Even if desc_line is empty (e.g., whitespace-only first line),
+                # we still print it with indentation rather than falling back to "No description available"
                 print(f"     {desc_line}", file=sys.stderr)
             else:
                 print("     No description available", file=sys.stderr)

@@ -42,12 +42,23 @@ class TestGetScriptPath:
         assert result.is_absolute()
 
     def test_get_script_path_empty_string(self):
-        """Test script path resolution with empty string."""
+        """Test script path resolution with empty string.
+
+        Edge case: When script_name is empty, the function returns the base scripts
+        directory path. This behavior occurs because PathLib's / operator with an
+        empty string simply returns the left operand (scripts_dir / "" == scripts_dir).
+        """
         script_name = ""
         result = get_script_path(script_name)
 
         assert isinstance(result, Path)
+        # When script_name is empty, should return the scripts directory itself
         assert str(result).endswith("scripts")
+        # More specific assertion: the path should end exactly with "mcp_server/scripts"
+        # and not contain any additional path components after "scripts"
+        assert str(result).endswith("mcp_server/scripts")
+        # Verify no trailing separators or additional components
+        assert result.name == "scripts"
 
     def test_get_script_path_relative_to_utils_module(self):
         """Test that script path is correctly resolved relative to utils module."""
@@ -186,7 +197,7 @@ Execute: {{SCRIPT_PATHS}}"""
             mock_path.return_value.parent.parent = temp_dir
             result = load_prompt_from_markdown("test-prompt", [])
 
-        # Empty scripts list should be treated as None
+        # Empty scripts list is falsy, so placeholder replacement is skipped
         assert "{{SCRIPT_PATHS}}" in result
 
     def test_load_prompt_from_markdown_malformed_frontmatter(self, temp_dir):
@@ -259,11 +270,25 @@ Content here."""
         # parts[0] = "" (before first ---)
         # parts[1] = "\ntitle: Test Prompt\nThis has only one "
         # parts[2] = " at the start\n\n# Test Prompt\n\nContent here."
-        # Since len(parts) >= 3, it strips frontmatter and returns parts[2]
+        # Since len(parts) >= 3, it strips frontmatter and returns parts[2].strip()
+
+        # Verify the function correctly identifies this as having frontmatter
+        # and returns the content after the first "---" occurrence
         assert "# Test Prompt" in result
         assert "Content here." in result
-        # The frontmatter should be stripped
+
+        # Verify frontmatter content is stripped
         assert "title: Test Prompt" not in result
+
+        # Verify specific behavior: the content starts with "at the start"
+        # (the remainder after the split on the partial "---" in the content)
+        # Note: the leading space is stripped by the function
+        assert result.startswith("at the start")
+
+        # Verify the result contains the expected structure
+        expected_parts = ["at the start", "# Test Prompt", "Content here."]
+        for part in expected_parts:
+            assert part in result
 
     def test_load_prompt_from_markdown_utf8_encoding(self, temp_dir):
         """Test proper UTF-8 encoding handling."""

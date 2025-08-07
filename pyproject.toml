@@ -1,5 +1,6 @@
 [tool.pytest.ini_options]
 minversion = "6.0"
+asyncio_mode = "auto"
 addopts = [
   "--strict-markers",
   "--strict-config",
@@ -7,14 +8,10 @@ addopts = [
   "--cov-report=term-missing",
   "--cov-report=html",
   "--cov-fail-under=80",
+  "--pdbcls=IPython.terminal.debugger:TerminalPdb",
   "-ra",
 ]
 testpaths = ["mcp_server/tests"]
-markers = [
-  "unit: marks tests as unit tests",
-  "integration: marks tests as integration tests",
-  "slow: marks tests as slow running",
-]
 
 [tool.coverage.run]
 source = ["mcp_server"]

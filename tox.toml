@@ -1,5 +1,4 @@
 skipsdist = true
-
 envlist = ["unused-code", "unittests"]
 
 [env.unused-code]
@@ -8,4 +7,4 @@ commands = [["pyutils-unusedcode"]]
 
 [env.unittests]
 deps = ["uv"]
-commands = [["uv", "run", "--group", "tests", "pytest"]]
+commands = [["uv", "run", "--group", "tests", "--group", "dev", "pytest"]]

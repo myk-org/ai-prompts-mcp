@@ -44,7 +44,8 @@ To use this server with MCP-compatible clients, add the following to your MCP co
       "command": "uv",
       "args": [
         "run",
-        "/path/to/ai-prompts-mcp/.venv/bin/python",
+        "--directory",
+        "/path/to/ai-prompts-mcp",
         "/path/to/ai-prompts-mcp/mcp_server/main.py"
       ]
     }
