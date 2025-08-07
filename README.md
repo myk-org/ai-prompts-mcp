@@ -44,7 +44,8 @@ To use this server with MCP-compatible clients, add the following to your MCP co
       "command": "uv",
       "args": [
         "run",
-        "/path/to/ai-prompts-mcp/.venv/bin/python",
+        "--directory",
+        "/path/to/ai-prompts-mcp",
         "/path/to/ai-prompts-mcp/mcp_server/main.py"
       ]
     }
@@ -53,32 +54,6 @@ To use this server with MCP-compatible clients, add the following to your MCP co
 ```
 
 Replace `/path/to/ai-prompts-mcp` with the actual path where you cloned this repository.
-
-## Project Structure
-
-```
-ai-prompts-mcp/
-├── mcp_server/
-│   ├── __init__.py
-│   ├── main.py                    # MCP server entry point
-│   ├── prompts/                   # Markdown prompt files
-│   │   ├── github-coderabbitai-review-handler.md
-│   │   ├── github-review-handler.md
-│   │   └── commit.md
-│   ├── scripts/                   # Bundled scripts
-│   │   ├── general/               # Shared scripts
-│   │   │   └── get-pr-info.sh
-│   │   ├── github-coderabbitai-review-handler/
-│   │   │   └── get-coderabbit-comments.sh
-│   │   └── github-review-handler/
-│   │       └── get-human-reviews.sh
-│   └── utils/                     # Utility functions
-│       ├── __init__.py
-│       └── utils.py
-├── README.md
-├── pyproject.toml
-└── uv.lock
-```
 
 ## Available Prompts
 
