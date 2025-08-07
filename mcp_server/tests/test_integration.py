@@ -29,18 +29,6 @@ class TestMCPServerIntegration:
         for prompt_name in expected_prompts:
             assert prompt_name in prompt_dict
 
-    def test_prompt_registration_integration_sync(self):
-        """Test that all prompts are properly registered with the server (synchronous fallback)."""
-        # This test provides a fallback that directly checks the manager's internal state
-        # when async testing is not available. This demonstrates the fragility of the approach.
-        prompt_dict = mcp._prompt_manager._prompts
-
-        # Verify all expected prompts are registered
-        expected_prompts = ["github-coderabbitai-review-handler", "commit", "github-review-handler"]
-
-        for prompt_name in expected_prompts:
-            assert prompt_name in prompt_dict
-
 
 class TestEndToEndPromptFlow:
     """End-to-end tests for prompt functionality."""
@@ -79,13 +67,10 @@ Additional instructions here."""
         script2 = script2_dir / "script2.sh"
         script2.write_text("#!/bin/bash\necho 'script2'", encoding="utf-8")
 
-        # Mock the path resolution to use our temp directory
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-
-            # Test loading prompt with scripts
-            result = load_prompt_from_markdown("test-integration", ["folder1/script1.sh", "folder2/script2.sh"])
+        # Test loading prompt with scripts using base_dir parameter
+        result = load_prompt_from_markdown(
+            "test-integration", ["folder1/script1.sh", "folder2/script2.sh"], base_dir=temp_dir
+        )
 
         # Verify the result
         assert "# Integration Test Prompt" in result
@@ -113,10 +98,7 @@ Just plain instructions."""
         prompt_file = prompts_dir / "simple-prompt.md"
         prompt_file.write_text(prompt_content, encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("simple-prompt")
+        result = load_prompt_from_markdown("simple-prompt", base_dir=temp_dir)
 
         assert "# Simple Prompt" in result
         assert "Just plain instructions." in result
@@ -170,15 +152,12 @@ class TestErrorHandlingIntegration:
 
     def test_missing_prompt_file_integration(self, temp_dir):
         """Test handling of missing prompt files."""
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("nonexistent-prompt")
+        result = load_prompt_from_markdown("nonexistent-prompt", base_dir=temp_dir)
 
         assert "Error: Prompt file 'nonexistent-prompt.md' not found" in result
 
     def test_prompt_function_attributes_exist(self, temp_dir):
-        """Test that prompt functions exist and have proper structure."""
+        """Test that prompt functions have required name and description attributes."""
         # Test that the prompt functions exist and are properly configured
         assert main_module.commit.name == "commit"
         assert main_module.commit.description is not None
@@ -192,10 +171,7 @@ class TestErrorHandlingIntegration:
         prompt_file = prompts_dir / "malformed.md"
         prompt_file.write_text("", encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("malformed")
+        result = load_prompt_from_markdown("malformed", base_dir=temp_dir)
 
         # Should handle empty file gracefully
         assert result == ""
@@ -214,10 +190,7 @@ description: This file has no content after frontmatter
         prompt_file = prompts_dir / "frontmatter-only.md"
         prompt_file.write_text(frontmatter_only, encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("frontmatter-only")
+        result = load_prompt_from_markdown("frontmatter-only", base_dir=temp_dir)
 
         # Should return empty string since there's no content after frontmatter
         assert result == ""
@@ -242,10 +215,7 @@ This content should still be accessible."""
         prompt_file = prompts_dir / "malformed-yaml.md"
         prompt_file.write_text(malformed_yaml, encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("malformed-yaml")
+        result = load_prompt_from_markdown("malformed-yaml", base_dir=temp_dir)
 
         # Should still return content after frontmatter, even if YAML is malformed
         assert "# Content After Malformed Frontmatter" in result
@@ -270,10 +240,7 @@ Content continues here."""
         prompt_file = prompts_dir / "incomplete-frontmatter.md"
         prompt_file.write_text(incomplete_frontmatter, encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("incomplete-frontmatter")
+        result = load_prompt_from_markdown("incomplete-frontmatter", base_dir=temp_dir)
 
         # Should treat everything after the opening delimiter as content
         # since there's no closing delimiter
@@ -292,14 +259,11 @@ Content continues here."""
         invalid_utf8_bytes = b"# Valid Header\n\nSome content with invalid UTF-8: \xff\xfe\n\nMore content"
         prompt_file.write_bytes(invalid_utf8_bytes)
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            # Current implementation raises UnicodeDecodeError for invalid UTF-8
-            # This test documents the current behavior - in the future, the implementation
-            # could be enhanced to handle encoding errors gracefully
-            with pytest.raises(UnicodeDecodeError):
-                load_prompt_from_markdown("invalid-utf8")
+        # Current implementation raises UnicodeDecodeError for invalid UTF-8
+        # This test documents the current behavior - in the future, the implementation
+        # could be enhanced to handle encoding errors gracefully
+        with pytest.raises(UnicodeDecodeError):
+            load_prompt_from_markdown("invalid-utf8", base_dir=temp_dir)
 
     def test_prompt_file_extremely_large(self, temp_dir):
         """Test handling of extremely large prompt files."""
@@ -331,10 +295,7 @@ End of large content."""
         prompt_file = prompts_dir / "large-file.md"
         prompt_file.write_text(large_content, encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("large-file")
+        result = load_prompt_from_markdown("large-file", base_dir=temp_dir)
 
         # Should handle large files without issues
         assert "# Large Prompt File" in result
@@ -355,10 +316,7 @@ End of large content."""
         prompt_file = prompts_dir / "delimiters-only.md"
         prompt_file.write_text(delimiters_only, encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("delimiters-only")
+        result = load_prompt_from_markdown("delimiters-only", base_dir=temp_dir)
 
         # Should return empty string since there's no content
         assert result == ""
@@ -389,10 +347,7 @@ More content here."""
         prompt_file = prompts_dir / "multiple-frontmatter.md"
         prompt_file.write_text(multiple_frontmatter, encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-            result = load_prompt_from_markdown("multiple-frontmatter")
+        result = load_prompt_from_markdown("multiple-frontmatter", base_dir=temp_dir)
 
         # Should only strip the first frontmatter section
         assert "# Content Section 1" in result
@@ -475,13 +430,9 @@ More content here."""
         prompt_file = prompts_dir / "large-prompt.md"
         prompt_file.write_text(large_content, encoding="utf-8")
 
-        with patch("mcp_server.utils.utils.Path") as mock_path:
-            mock_instance = mock_path.return_value
-            mock_instance.parent.parent = temp_dir
-
-            start_time = time.time()
-            result = load_prompt_from_markdown("large-prompt")
-            end_time = time.time()
+        start_time = time.time()
+        result = load_prompt_from_markdown("large-prompt", base_dir=temp_dir)
+        end_time = time.time()
 
         # Should complete within reasonable time (configurable threshold)
         threshold = performance_thresholds["prompt_loading"]

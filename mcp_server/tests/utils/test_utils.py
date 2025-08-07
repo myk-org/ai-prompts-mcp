@@ -68,6 +68,18 @@ class TestGetScriptPath:
         # The path should contain mcp_server/scripts
         assert "mcp_server/scripts" in str(result)
 
+    def test_get_script_path_with_base_dir(self, tmp_path):
+        """Test script path resolution with custom base directory."""
+        script_name = "test-folder/test-script.sh"
+        custom_base = tmp_path / "custom_base"
+
+        result = get_script_path(script_name, base_dir=custom_base)
+
+        # Should use the custom base directory
+        assert str(result).startswith(str(custom_base))
+        assert str(result).endswith("scripts/test-folder/test-script.sh")
+        assert result.is_absolute()
+
 
 class TestLoadPromptFromMarkdown:
     """Test cases for load_prompt_from_markdown function."""
@@ -325,3 +337,45 @@ Unicode content: 🚀 émojis and ñ characters."""
 
         assert "{{SCRIPT_PATHS}}" not in result
         assert "/test/scripts/single.sh" in result
+
+    def test_load_prompt_from_markdown_with_base_dir(self, tmp_path):
+        """Test load_prompt_from_markdown with custom base directory parameter."""
+        # Create custom base directory structure
+        custom_base = tmp_path / "custom_base"
+        prompts_dir = custom_base / "prompts"
+        scripts_dir = custom_base / "scripts"
+        prompts_dir.mkdir(parents=True)
+        scripts_dir.mkdir(parents=True)
+
+        # Create prompt file
+        prompt_content = """---
+title: Test Base Dir
+---
+
+# Test Prompt
+
+Execute these scripts: {{SCRIPT_PATHS}}
+
+Additional content here."""
+
+        prompt_file = prompts_dir / "test-prompt.md"
+        prompt_file.write_text(prompt_content, encoding="utf-8")
+
+        # Create script file
+        script_file = scripts_dir / "test-script.sh"
+        script_file.write_text("#!/bin/bash\necho 'test'", encoding="utf-8")
+
+        # Test loading with base_dir parameter
+        result = load_prompt_from_markdown("test-prompt", ["test-script.sh"], base_dir=custom_base)
+
+        # Verify frontmatter was stripped
+        assert "title: Test Base Dir" not in result
+
+        # Verify content is present
+        assert "# Test Prompt" in result
+        assert "Additional content here." in result
+
+        # Verify script replacement worked with custom base directory
+        assert "{{SCRIPT_PATHS}}" not in result
+        expected_script_path = str(custom_base / "scripts" / "test-script.sh")
+        assert expected_script_path in result
