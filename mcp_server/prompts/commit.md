@@ -71,5 +71,6 @@ The commit message will be concise, meaningful, and follow your project's conven
 - Include "Generated with Claude Code" or similar messages
 - Modify git config or user credentials
 - Add any AI/assistant attribution to the commit
+- Use `--no-verify` flag (this bypasses pre-commit hooks and is not allowed)
 
 The commit will use only your existing git user configuration, maintaining full ownership and authenticity of your commits.
