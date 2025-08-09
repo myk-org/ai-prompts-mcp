@@ -105,19 +105,6 @@ def smart_test_runner() -> str:
     return load_prompt_from_markdown("smart-test-runner")
 
 
-@mcp.prompt(name="readme-generator")
-def readme_generator() -> str:
-    """Analyzes codebase and generates comprehensive, user-friendly README.md.
-
-    Performs thorough codebase analysis to create or refactor README.md files
-    with accurate features, installation steps, and usage documentation.
-
-    Returns:
-        Complete instructions for generating professional README documentation
-    """
-    return load_prompt_from_markdown("readme-generator")
-
-
 def print_available_prompts() -> None:
     """Print all available prompts before server starts."""
     # Get all registered prompts from the prompt manager
