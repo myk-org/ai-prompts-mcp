@@ -53,6 +53,19 @@ def github_review_handler() -> str:
     return load_prompt_from_markdown("github-review-handler", scripts)
 
 
+@mcp.prompt(name="code-review")
+def code_review() -> str:
+    """Comprehensive code review for security, bugs, performance, and quality issues.
+
+    Analyzes code files for potential security vulnerabilities, common bugs,
+    performance concerns, and code quality issues with systematic reporting.
+
+    Returns:
+        Complete instructions for conducting thorough code reviews
+    """
+    return load_prompt_from_markdown("code-review")
+
+
 def print_available_prompts() -> None:
     """Print all available prompts before server starts."""
     # Get all registered prompts from the prompt manager
