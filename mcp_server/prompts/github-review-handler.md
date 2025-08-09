@@ -23,12 +23,15 @@ The script returns structured JSON containing:
 - `comments`: Array of review comments from human reviewers
   - Each has: reviewer, file, line, body
 
-**Step 3: Present comments ONE AT A TIME for individual approval**
+**Step 3: PHASE 1 - Collect User Decisions (COLLECTION ONLY - NO PROCESSING)**
 
-**IMPORTANT: Present each comment individually and WAIT for user response before showing the next one.**
+**🚨 CRITICAL: This is the COLLECTION phase. Do NOT execute, implement, or process ANY comments yet. Only ask questions and create tasks.**
+
+Go through ALL comments sequentially, collecting user decisions:
+
+**IMPORTANT: Present each comment individually, WAIT for user response, but NEVER execute, implement, or process anything during this phase.**
 
 For each comment, present:
-
 ```
 👤 Human Review - Comment X of Y
 👨‍💻 Reviewer: [reviewer name]
@@ -39,14 +42,49 @@ For each comment, present:
 Do you want to address this comment? (yes/no/skip)
 ```
 
-**Do NOT present all comments at once. Present one, wait for answer, then proceed to next.**
+**For each "yes" response:**
+- Create a TodoWrite task with appropriate agent assignment
+- Show confirmation: "✅ Task created: [brief description]"
+- **DO NOT execute the task - Continue to next comment immediately**
 
-**Step 4: Process approved comments**
+**For "no" or "skip" responses:**
+- Show: "⏭️ Skipped"
+- Continue to next comment immediately
 
-For approved comments:
+**🚨 REMINDER: Do NOT execute, implement, fix, or process anything during this phase. Only collect decisions and create tasks.**
 
-1. Create todo items with appropriate agent assignment
-2. Route to python-expert or appropriate specialist based on comment content
-3. Process multiple comments in parallel when possible
+**Step 4: PHASE 2 - Process All Approved Tasks (EXECUTION PHASE)**
+
+**🚨 IMPORTANT: Only start this phase AFTER all comments have been presented and decisions collected.**
+
+After ALL comments have been reviewed in Phase 1:
+
+1. **Show approved tasks and proceed directly:**
+
+```
+📋 Processing X approved tasks:
+1. [Task description]
+2. [Task description]
+...
+```
+Proceed directly to execution (no confirmation needed since user already approved each task in Phase 1)
+
+2. **Process all approved tasks:**
+   - Route to appropriate specialists based on comment content
+   - Process multiple tasks in parallel when possible
+   - Mark each task as completed after finishing
+
+3. **Post-execution workflow:**
+   - **Run tests**: Use test-runner agent to run all tests
+   - **If tests pass**: Ask user "All tests pass. Do you want to commit the changes? (yes/no)"
+   - **If user says yes**: Use git-expert agent to commit changes with descriptive message
+   - **If tests fail**: Use debugger agent to analyze and fix test failures, then re-run tests until they pass
+
+**🚨 CRITICAL WORKFLOW:**
+- **Phase 1**: ONLY collect decisions (yes/no/skip) and create tasks - NO execution
+- **Phase 2**: ONLY execute tasks after ALL comments reviewed - NO more questions
+- **Phase 3**: Run tests via test-runner agent, then ask for commit confirmation and use git-expert agent if tests pass
+
+**NEVER mix the phases. Complete each phase fully before starting the next.**
 
 Note: Human review comments are treated equally (no priority system like CodeRabbit).

@@ -46,10 +46,10 @@ if [ -z "$LATEST_COMMIT_SHA" ]; then
   exit 1
 fi
 
-# Step 2: Get all reviews after latest commit, excluding CodeRabbit
+# Step 2: Get all reviews for latest commit only, excluding CodeRabbit
 HUMAN_REVIEWS=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews" |
-  jq --arg bot_user "coderabbitai[bot]" \
-    '[.[] | select(.user.login != $bot_user and (.body | length) > 10)] | sort_by(.submitted_at)')
+  jq --arg bot_user "coderabbitai[bot]" --arg latest_sha "$LATEST_COMMIT_SHA" \
+    '[.[] | select(.user.login != $bot_user and (.body | length) > 10 and .commit_id == $latest_sha)] | sort_by(.submitted_at)')
 
 # Step 3: Get all review comments from human reviewers
 ALL_COMMENTS='[]'
@@ -71,6 +71,23 @@ for review_id in $(echo "$HUMAN_REVIEWS" | jq -r '.[].id'); do
   # Merge with all comments
   ALL_COMMENTS=$(echo "$ALL_COMMENTS $REVIEW_COMMENTS" | jq -s 'add')
 done
+
+# Step 4: Get PR review comments (not inline review comments) filtered by latest commit SHA
+PR_COMMENTS=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/comments" |
+  jq --arg bot_user "coderabbitai[bot]" --arg latest_sha "$LATEST_COMMIT_SHA" '[.[] |
+    select(.user.login != $bot_user and (.body | length) > 10 and .commit_id == $latest_sha) |
+    {
+      reviewer: .user.login,
+      file: .path,
+      line: (.line // .original_line // ""),
+      body: .body
+    }
+  ]')
+
+# Merge PR review comments with review-specific comments
+ALL_COMMENTS=$(echo "$ALL_COMMENTS $PR_COMMENTS" | jq -s 'add')
+
+# Note: We only include review comments (with file/line info), not general PR conversation comments
 
 # Count comments
 TOTAL_COUNT=$(echo "$ALL_COMMENTS" | jq '. | length')
