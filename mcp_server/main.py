@@ -66,6 +66,45 @@ def code_review() -> str:
     return load_prompt_from_markdown("code-review")
 
 
+@mcp.prompt(name="code-beautifier")
+def code_beautifier() -> str:
+    """Code beautification and refactoring for improved readability and maintainability.
+
+    Analyzes code structure and formatting to suggest improvements for better
+    readability, consistency, and maintainability while preserving functionality.
+
+    Returns:
+        Complete instructions for code beautification and refactoring
+    """
+    return load_prompt_from_markdown("code-beautifier")
+
+
+@mcp.prompt(name="comment-cleaner")
+def comment_cleaner() -> str:
+    """Clean up redundant comments while preserving valuable documentation.
+
+    Identifies and removes unnecessary, outdated, or redundant comments while
+    maintaining essential documentation and improving code clarity.
+
+    Returns:
+        Complete instructions for intelligent comment cleanup
+    """
+    return load_prompt_from_markdown("comment-cleaner")
+
+
+@mcp.prompt(name="smart-test-runner")
+def smart_test_runner() -> str:
+    """Intelligent test running with failure analysis and optimization.
+
+    Provides smart test execution strategies, failure analysis, and optimization
+    recommendations for efficient testing workflows and debugging.
+
+    Returns:
+        Complete instructions for intelligent test running and analysis
+    """
+    return load_prompt_from_markdown("smart-test-runner")
+
+
 def print_available_prompts() -> None:
     """Print all available prompts before server starts."""
     # Get all registered prompts from the prompt manager
