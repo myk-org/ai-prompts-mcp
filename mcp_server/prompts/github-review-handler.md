@@ -39,13 +39,18 @@ For each comment, present:
 📍 Line: [line]
 💬 Comment: [body]
 
-Do you want to address this comment? (yes/no/skip)
+Do you want to address this comment? (yes/no/skip/all)
 ```
 
 **For each "yes" response:**
 - Create a TodoWrite task with appropriate agent assignment
 - Show confirmation: "✅ Task created: [brief description]"
 - **DO NOT execute the task - Continue to next comment immediately**
+
+**For "all" response:**
+- Create TodoWrite tasks for the current comment AND all remaining comments automatically
+- Show summary: "✅ Created tasks for current comment + X remaining comments"
+- **Skip to Phase 2 immediately**
 
 **For "no" or "skip" responses:**
 - Show: "⏭️ Skipped"
@@ -70,20 +75,23 @@ After ALL comments have been reviewed in Phase 1:
 Proceed directly to execution (no confirmation needed since user already approved each task in Phase 1)
 
 2. **Process all approved tasks:**
-   - Route to appropriate specialists based on comment content
+   - Route to appropriate specialists using Task tool based on comment content
    - Process multiple tasks in parallel when possible
    - Mark each task as completed after finishing
 
 3. **Post-execution workflow:**
-   - **Run tests**: Use test-runner agent to run all tests
+   - **Run tests**: Use Task tool to select appropriate agent to run all tests
    - **If tests pass**: Ask user "All tests pass. Do you want to commit the changes? (yes/no)"
-   - **If user says yes**: Use git-expert agent to commit changes with descriptive message
-   - **If tests fail**: Use debugger agent to analyze and fix test failures, then re-run tests until they pass
+   - **If user says yes**: Use Task tool to select appropriate agent to commit changes with descriptive message
+   - **After successful commit**: Ask user "Changes committed successfully. Do you want to push the changes to remote? (yes/no)"
+   - **If user says yes to push**: Use Task tool to select appropriate agent to push changes to remote repository
+   - **If tests fail**: Use Task tool to select appropriate agent to analyze and fix test failures, then re-run tests until they pass
 
 **🚨 CRITICAL WORKFLOW:**
-- **Phase 1**: ONLY collect decisions (yes/no/skip) and create tasks - NO execution
+- **Phase 1**: ONLY collect decisions (yes/no/skip/all) and create tasks - NO execution
 - **Phase 2**: ONLY execute tasks after ALL comments reviewed - NO more questions
-- **Phase 3**: Run tests via test-runner agent, then ask for commit confirmation and use git-expert agent if tests pass
+- **Phase 3**: Run tests via Task tool, then ask for commit confirmation and use Task tool for git operations if tests pass
+- **Phase 4**: After successful commit, ask for push confirmation and use Task tool for git push if approved
 
 **NEVER mix the phases. Complete each phase fully before starting the next.**
 

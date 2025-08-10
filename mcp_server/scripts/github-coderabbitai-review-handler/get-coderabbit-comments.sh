@@ -554,10 +554,10 @@ fi
 
 JSON_OUTPUT="$JSON_OUTPUT$COMMENT_SECTIONS}"
 
-# Filter out LGTM and "looks good" confirmation comments from duplicates only
+# Filter out LGTM and positive feedback comments from duplicates only
 echo "$JSON_OUTPUT" | jq '
   if has("duplicate_comments") then
-    .duplicate_comments |= map(select(.title | test("^LGTM!|looks good") | not)) |
+    .duplicate_comments |= map(select((.title + " " + .body) | test("LGTM|looks good|good fix|nice improvement|great work|excellent|perfect|well done|correct implementation|good approach|nice work|good portability|better approach"; "i") | not)) |
     .summary.duplicates = (.duplicate_comments | length) |
     .summary.total = ((.summary.actionable // 0) + (.summary.nitpicks // 0) + (.summary.duplicates // 0) + (.summary.outside_diff_range // 0))
   else . end

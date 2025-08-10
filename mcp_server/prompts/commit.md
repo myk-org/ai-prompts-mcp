@@ -1,6 +1,6 @@
 # Smart Git Commit
 
-Call the git agent with bellow instructions:
+Use the Task tool to select an appropriate agent with the following instructions:
 
 I'll analyze your changes and create a meaningful commit message.
 

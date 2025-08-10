@@ -28,6 +28,30 @@ The script returns structured JSON containing:
 - `outside_diff_range_comments`: Array of LOW priority comments on code outside the diff (only present if any exist)
   - Each has: priority, title, file, line, body
 
+**Step 2.5: Filter Positive Comments from Duplicates**
+
+🎯 **CRITICAL: Before presenting MEDIUM priority comments to user, classify each duplicate comment to filter out positive feedback.**
+
+For each comment in `duplicate_comments` (if any exist), analyze the title and body to determine:
+
+**POSITIVE (Filter Out) - Comments that are:**
+- Praise/acknowledgment: Contains words like "good", "great", "nice", "excellent", "perfect", "well done", "correct"
+- Positive feedback on fixes: "good fix", "nice improvement", "better approach", "correct implementation"
+- Acknowledgment without suggestions: No action words like "should", "consider", "recommend", "suggest", "try"
+
+**ACTIONABLE (Keep) - Comments that:**
+- Contain suggestions: "should", "consider", "recommend", "suggest", "could", "might want to"
+- Point out issues: "issue", "problem", "concern", "potential", "risk"
+- Request changes: "change", "update", "modify", "improve", "refactor"
+
+**Examples:**
+- ✅ POSITIVE (filter out): "Windows-safe resource import guard: good portability fix"
+- ✅ POSITIVE (filter out): "Nice error handling improvement"
+- ❌ ACTIONABLE (keep): "Consider adding error handling here"
+- ❌ ACTIONABLE (keep): "This could cause performance issues"
+
+After classification, remove all POSITIVE comments from the `duplicate_comments` array before proceeding to Step 3.
+
 **Step 3: PHASE 1 - Collect User Decisions (COLLECTION ONLY - NO PROCESSING)**
 
 **🚨 CRITICAL: This is the COLLECTION phase. Do NOT execute, implement, or process ANY comments yet. Only ask questions and create tasks.**
@@ -46,7 +70,7 @@ For actionable comments, present:
 📋 Title: [title]
 🎯 Instruction: [body - this is the AI prompt to execute]
 
-Execute this AI instruction? (yes/no/skip)
+Execute this AI instruction? (yes/no/skip/all)
 ```
 
 For nitpicks/duplicates, present:
@@ -57,13 +81,18 @@ For nitpicks/duplicates, present:
 📋 Title: [title]
 💬 Description: [body]
 
-Do you want to address this comment? (yes/no/skip)
+Do you want to address this comment? (yes/no/skip/all)
 ```
 
 **For each "yes" response:**
 - Create a TodoWrite task with appropriate agent assignment
 - Show confirmation: "✅ Task created: [brief description]"
 - **DO NOT execute the task - Continue to next comment immediately**
+
+**For "all" response:**
+- Create TodoWrite tasks for the current comment AND all remaining comments automatically
+- Show summary: "✅ Created tasks for current comment + X remaining comments"
+- **Skip to Phase 2 immediately**
 
 **For "no" or "skip" responses:**
 - Show: "⏭️ Skipped"
@@ -89,19 +118,22 @@ Proceed directly to execution (no confirmation needed since user already approve
 
 2. **Process all approved tasks:**
    - **HIGH Priority (Actionable)**: Execute AI instructions directly using body as prompt
-   - **MEDIUM/LOW Priority**: Route to appropriate specialists  
+   - **MEDIUM/LOW Priority**: Route to appropriate specialists using Task tool
    - Process multiple tasks in parallel when possible
    - Mark each task as completed after finishing
 
 3. **Post-execution workflow:**
-   - **Run tests**: Use test-runner agent to run all tests
+   - **Run tests**: Use Task tool to select appropriate agent to run all tests
    - **If tests pass**: Ask user "All tests pass. Do you want to commit the changes? (yes/no)"
-   - **If user says yes**: Use git-expert agent to commit changes with descriptive message
-   - **If tests fail**: Use debugger agent to analyze and fix test failures, then re-run tests until they pass
+   - **If user says yes**: Use Task tool to select appropriate agent to commit changes with descriptive message
+   - **After successful commit**: Ask user "Changes committed successfully. Do you want to push the changes to remote? (yes/no)"
+   - **If user says yes to push**: Use Task tool to select appropriate agent to push changes to remote repository
+   - **If tests fail**: Use Task tool to select appropriate agent to analyze and fix test failures, then re-run tests until they pass
 
 **🚨 CRITICAL WORKFLOW:**
-- **Phase 1**: ONLY collect decisions (yes/no/skip) and create tasks - NO execution
+- **Phase 1**: ONLY collect decisions (yes/no/skip/all) and create tasks - NO execution
 - **Phase 2**: ONLY execute tasks after ALL comments reviewed - NO more questions
-- **Phase 3**: Run tests via test-runner agent, then ask for commit confirmation and use git-expert agent if tests pass
+- **Phase 3**: Run tests via Task tool, then ask for commit confirmation and use Task tool for git operations if tests pass
+- **Phase 4**: After successful commit, ask for push confirmation and use Task tool for git push if approved
 
 **NEVER mix the phases. Complete each phase fully before starting the next.**
