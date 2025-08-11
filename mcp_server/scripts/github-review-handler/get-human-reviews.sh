@@ -38,7 +38,7 @@ fi
 OWNER=$(echo "$REPO_FULL_NAME" | cut -d'/' -f1)
 REPO=$(echo "$REPO_FULL_NAME" | cut -d'/' -f2)
 
-# Step 1: Get the latest commit SHA
+# Step 1: Get the latest commit SHA and timestamp
 LATEST_COMMIT_SHA=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')
 
 if [ -z "$LATEST_COMMIT_SHA" ]; then
@@ -46,10 +46,18 @@ if [ -z "$LATEST_COMMIT_SHA" ]; then
   exit 1
 fi
 
-# Step 2: Get all reviews for latest commit only, excluding CodeRabbit
+# Get the latest commit timestamp
+LATEST_COMMIT_DATE=$(gh api "/repos/$OWNER/$REPO/commits/$LATEST_COMMIT_SHA" --jq '.commit.committer.date')
+
+if [ -z "$LATEST_COMMIT_DATE" ]; then
+  echo "❌ Error: Could not retrieve latest commit date"
+  exit 1
+fi
+
+# Step 2: Get all reviews submitted after the latest commit, excluding CodeRabbit
 HUMAN_REVIEWS=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews" |
-  jq --arg bot_user "coderabbitai[bot]" --arg latest_sha "$LATEST_COMMIT_SHA" \
-    '[.[] | select(.user.login != $bot_user and (.body | length) > 10 and .commit_id == $latest_sha)] | sort_by(.submitted_at)')
+  jq --arg bot_user "coderabbitai[bot]" --arg latest_date "$LATEST_COMMIT_DATE" \
+    '[.[] | select(.user.login != $bot_user and (.body | length) > 10 and .submitted_at > $latest_date)] | sort_by(.submitted_at)')
 
 # Step 3: Get all review comments from human reviewers
 ALL_COMMENTS='[]'
@@ -72,10 +80,10 @@ for review_id in $(echo "$HUMAN_REVIEWS" | jq -r '.[].id'); do
   ALL_COMMENTS=$(echo "$ALL_COMMENTS $REVIEW_COMMENTS" | jq -s 'add')
 done
 
-# Step 4: Get PR review comments (not inline review comments) filtered by latest commit SHA
+# Step 4: Get PR review comments (not inline review comments) created after the latest commit
 PR_COMMENTS=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/comments" |
-  jq --arg bot_user "coderabbitai[bot]" --arg latest_sha "$LATEST_COMMIT_SHA" '[.[] |
-    select(.user.login != $bot_user and (.body | length) > 10 and .commit_id == $latest_sha) |
+  jq --arg bot_user "coderabbitai[bot]" --arg latest_date "$LATEST_COMMIT_DATE" '[.[] |
+    select(.user.login != $bot_user and (.body | length) > 10 and .created_at > $latest_date) |
     {
       reviewer: .user.login,
       file: .path,
@@ -87,7 +95,8 @@ PR_COMMENTS=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/comments" |
 # Merge PR review comments with review-specific comments
 ALL_COMMENTS=$(echo "$ALL_COMMENTS $PR_COMMENTS" | jq -s 'add')
 
-# Note: We only include review comments (with file/line info), not general PR conversation comments
+# Note: We only include review comments (with file/line info) submitted after the latest commit, not general PR conversation comments
+# This ensures we only get human feedback that came after the latest changes
 
 # Count comments
 TOTAL_COUNT=$(echo "$ALL_COMMENTS" | jq '. | length')
