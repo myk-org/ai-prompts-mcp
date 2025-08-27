@@ -421,10 +421,10 @@ if echo "$REVIEW_BODY" | grep -q "Outside diff range"; then
     }
 
     # Detect outside diff range section start
-    /Outside diff range/ { in_outside_diff_section = 1; next }
+    /⚠️ Outside diff range/ || /Outside diff range/ { in_outside_diff_section = 1; next }
 
-    # Stop at next major section or review details
-    /♻️ Duplicate comments/ || /🧹 Nitpick comments/ || /📜 Review details/ { exit }
+    # Stop at nitpick section (since outside diff comes before nitpicks) or other major sections
+    (in_outside_diff_section && /🧹 Nitpick comments/) || /♻️ Duplicate comments/ || /📜 Review details/ { exit }
 
     # Extract file path from file-specific summary
     in_outside_diff_section && /<summary>.*\([0-9]+\)<\/summary>/ {
@@ -436,8 +436,8 @@ if echo "$REVIEW_BODY" | grep -q "Outside diff range"; then
         next
     }
 
-    # Start of outside diff range block
-    in_file_section && /^`[0-9]+-?[0-9]*`: \*\*.*\*\*/ {
+    # Start of outside diff range block (handle > prefix from JSON)
+    in_file_section && (/^`[0-9]+-?[0-9]*`: \*\*.*\*\*/ || /^> `[0-9]+-?[0-9]*`: \*\*.*\*\*/) {
         # Output previous block if exists
         if (in_block && content != "") {
             if (first != 1) printf ","
@@ -455,7 +455,7 @@ if echo "$REVIEW_BODY" | grep -q "Outside diff range"; then
     }
 
     # Continue outside diff range content
-    in_block && $0 !~ /^`[0-9]+-?[0-9]*`: \*\*.*\*\*/ && $0 !~ /^----$/ && $0 !~ /<\/summary>/ {
+    in_block && $0 !~ /^`[0-9]+-?[0-9]*`: \*\*.*\*\*/ && $0 !~ /^> `[0-9]+-?[0-9]*`: \*\*.*\*\*/ && $0 !~ /^----$/ && $0 !~ /<\/summary>/ {
         if ($0 != "") {
             content = content "\n" $0
         }
@@ -463,7 +463,7 @@ if echo "$REVIEW_BODY" | grep -q "Outside diff range"; then
     }
 
     # End of block
-    in_block && ($0 ~ /^----$/ || $0 ~ /^`[0-9]+-?[0-9]*`: \*\*.*\*\*/ || $0 ~ /<\/blockquote>/) {
+    in_block && ($0 ~ /^----$/ || $0 ~ /^`[0-9]+-?[0-9]*`: \*\*.*\*\*/ || $0 ~ /^> `[0-9]+-?[0-9]*`: \*\*.*\*\*/ || $0 ~ /<\/blockquote>/) {
         if (content != "") {
             if (first != 1) printf ","
             output_block()
@@ -473,7 +473,7 @@ if echo "$REVIEW_BODY" | grep -q "Outside diff range"; then
         content = ""
 
         # Check if new block starts
-        if ($0 ~ /^`[0-9]+-?[0-9]*`: \*\*.*\*\*/) {
+        if ($0 ~ /^`[0-9]+-?[0-9]*`: \*\*.*\*\*/ || $0 ~ /^> `[0-9]+-?[0-9]*`: \*\*.*\*\*/) {
             match($0, /`([^`]+)`: \*\*(.+)\*\*/, arr)
             line_num = arr[1]
             title = arr[2]

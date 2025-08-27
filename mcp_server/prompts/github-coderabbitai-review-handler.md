@@ -59,25 +59,15 @@ After classification, remove all POSITIVE comments from the `duplicate_comments`
 Go through ALL comments in priority order, collecting user decisions:
 1. **HIGH Priority (Actionable)** first
 2. **MEDIUM Priority (Duplicates)** - if any exist  
-3. **LOW Priority (Nitpicks)** last
+3. **LOW Priority (Nitpicks and Outside Diff)** last
 
 **IMPORTANT: Present each comment individually, WAIT for user response, but NEVER execute, implement, or process anything during this phase.**
 
-For actionable comments, present:
+For ALL comment types, use this unified format:
 ```
-🤖 AI Instruction (HIGH Priority) - Comment X of Y
+🔴 [PRIORITY] Priority - Comment X of Y
 📁 File: [file path]
-📋 Title: [title]
-🎯 Instruction: [body - this is the AI prompt to execute]
-
-Execute this AI instruction? (yes/no/skip/all)
-```
-
-For nitpicks/duplicates, present:
-```
-🔴 Priority: [MEDIUM/LOW] - Comment X of Y
-📁 File: [file path]
-📍 Line: [line]
+📍 Line: [line] (if available)
 📋 Title: [title]
 💬 Description: [body]
 
@@ -117,8 +107,9 @@ After ALL comments have been reviewed in Phase 1:
 Proceed directly to execution (no confirmation needed since user already approved each task in Phase 1)
 
 2. **Process all approved tasks:**
-   - **HIGH Priority (Actionable)**: Execute AI instructions directly using body as prompt
-   - **MEDIUM/LOW Priority**: Route to appropriate specialists using Task tool
+   - **HIGH Priority (Actionable)**: Execute AI instructions directly using body as prompt  
+   - **MEDIUM Priority (Duplicates)**: Route to appropriate specialists using Task tool
+   - **LOW Priority (Nitpicks/Outside Diff)**: Route to appropriate specialists using Task tool
    - Process multiple tasks in parallel when possible
    - Mark each task as completed after finishing
 
