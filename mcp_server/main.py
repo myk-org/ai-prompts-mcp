@@ -105,6 +105,20 @@ def smart_test_runner() -> str:
     return load_prompt_from_markdown("smart-test-runner")
 
 
+@mcp.prompt(name="tasks")
+def tasks() -> str:
+    """Task management workflow using Archon MCP server.
+
+    Manages tasks for the current project using Archon MCP server. Automatically
+    identifies or creates projects based on repository name and provides task
+    management capabilities following Archon best practices.
+
+    Returns:
+        Complete instructions for Archon task management workflow
+    """
+    return load_prompt_from_markdown("tasks")
+
+
 def print_available_prompts() -> None:
     """Print all available prompts before server starts."""
     # Get all registered prompts from the prompt manager

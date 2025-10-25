@@ -26,9 +26,40 @@ skipConfirmation: true
 
 **Step 1: Get CodeRabbit comments using the extraction script**
 
+By default, the script retrieves CodeRabbit comments for the **latest commit** in the PR (HEAD):
+
 ```bash
-# Call the CodeRabbit extraction script with PR info script path
+# Call the CodeRabbit extraction script with PR info script path (uses latest commit)
 {{SCRIPT_PATHS}}
+```
+
+**Optional: Target a specific commit**
+
+If you need CodeRabbit comments from a specific commit (e.g., when new commits were added after the review):
+
+```bash
+# Get the script paths first
+GET_CODERABBIT_SCRIPT="$(echo '{{SCRIPT_PATHS}}' | head -1)"
+GET_PR_INFO_SCRIPT="$(echo '{{SCRIPT_PATHS}}' | tail -1)"
+
+# Get PR info
+PR_INFO=$("$GET_PR_INFO_SCRIPT")
+REPO_FULL_NAME=$(echo "$PR_INFO" | cut -d' ' -f1)
+PR_NUMBER=$(echo "$PR_INFO" | cut -d' ' -f2)
+
+# Call with specific commit SHA
+"$GET_CODERABBIT_SCRIPT" "$REPO_FULL_NAME" "$PR_NUMBER" <commit_sha>
+```
+
+**How to find the reviewed commit:**
+1. Check GitHub PR conversation for CodeRabbit review timestamp
+2. Find the commit SHA that was reviewed
+3. Pass it as the third argument to the script
+
+**Example:**
+```bash
+# Get comments from specific commit
+"$GET_CODERABBIT_SCRIPT" "myk-org/github-webhook-server" 878 6c544434d69b2ef76441949cfe839167b7de775a
 ```
 
 **Step 2: Process the JSON output**

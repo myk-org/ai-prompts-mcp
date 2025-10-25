@@ -2,7 +2,7 @@
 
 # Script to extract CodeRabbit comments for AI processing
 # Usage: get-coderabbit-comments.sh <pr-info-script-path>
-#   OR:  get-coderabbit-comments.sh <owner/repo> <pr_number>
+#   OR:  get-coderabbit-comments.sh <owner/repo> <pr_number> [commit_sha]
 
 if [ $# -eq 1 ]; then
   # Single argument: path to pr-info script
@@ -23,31 +23,40 @@ if [ $# -eq 1 ]; then
   # Parse the output (space-separated: REPO_FULL_NAME PR_NUMBER)
   REPO_FULL_NAME=$(echo "$PR_INFO" | cut -d' ' -f1)
   PR_NUMBER=$(echo "$PR_INFO" | cut -d' ' -f2)
+  COMMIT_SHA=""
 
-elif [ $# -eq 2 ]; then
-  # Two arguments: direct repo and PR number (backwards compatibility)
+elif [ $# -eq 2 ] || [ $# -eq 3 ]; then
+  # Two or three arguments: direct repo, PR number, and optional commit SHA
   REPO_FULL_NAME="$1"
   PR_NUMBER="$2"
+  COMMIT_SHA="${3:-}"  # Optional third parameter
 
 else
   echo "Usage: $0 <pr-info-script-path>"
-  echo "   OR: $0 <owner/repo> <pr_number>"
+  echo "   OR: $0 <owner/repo> <pr_number> [commit_sha]"
   exit 1
 fi
 
 OWNER=$(echo "$REPO_FULL_NAME" | cut -d'/' -f1)
 REPO=$(echo "$REPO_FULL_NAME" | cut -d'/' -f2)
 
-# Step 1: Get the latest commit SHA
-LATEST_COMMIT_SHA=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')
+# Step 1: Get the target commit SHA
+if [ -n "$COMMIT_SHA" ]; then
+  # Use provided commit SHA
+  LATEST_COMMIT_SHA="$COMMIT_SHA"
+else
+  # Get the latest commit SHA from PR
+  LATEST_COMMIT_SHA=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')
+fi
 
 if [ -z "$LATEST_COMMIT_SHA" ]; then
-  echo "❌ Error: Could not retrieve latest commit SHA"
+  echo "❌ Error: Could not retrieve commit SHA"
   exit 1
 fi
 
-# Step 2: Get CodeRabbit reviews for the latest commit only
-REVIEW_DATA=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews" |
+# Step 2: Get CodeRabbit reviews for the target commit
+# Note: GitHub API defaults to 30 items per page, so we request more to avoid missing recent reviews
+REVIEW_DATA=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews?per_page=100" |
   jq --arg bot_user "coderabbitai[bot]" --arg latest_sha "$LATEST_COMMIT_SHA" \
     '[.[] | select(.user.login == $bot_user and (.body | length) > 100 and .commit_id == $latest_sha)] | sort_by(.submitted_at) | .[-1]')
 
@@ -222,6 +231,15 @@ if echo "$REVIEW_BODY" | grep -q "Nitpick comments"; then
 
     # Extract file path from file-specific summary
     in_nitpick_section && /<summary>.*\([0-9]+\)<\/summary>/ {
+        # Output any pending block before changing files
+        if (in_block && content != "") {
+            if (first != 1) printf ","
+            output_block()
+            first = 0
+            in_block = 0
+            content = ""
+        }
+
         match($0, /<summary>([^(]+) \([0-9]+\)<\/summary>/, arr)
         if (arr[1] != "" && (arr[1] ~ /\// || arr[1] ~ /\./)) {
             current_file = arr[1]
@@ -299,7 +317,7 @@ if echo "$REVIEW_BODY" | grep -q "Nitpick comments"; then
             output_block()
         }
         printf "]\n"
-    }' | jq 'group_by(.title) | map(.[0])')
+    }' | jq '.')
 else
     NITPICK_COMMENTS='[]'
 fi
@@ -325,6 +343,15 @@ if echo "$REVIEW_BODY" | grep -q "Duplicate comments"; then
 
     # Extract file path from file-specific summary
     in_duplicate_section && /<summary>.*\([0-9]+\)<\/summary>/ {
+        # Output any pending block before changing files
+        if (in_block && content != "") {
+            if (first != 1) printf ","
+            output_block()
+            first = 0
+            in_block = 0
+            content = ""
+        }
+
         match($0, /<summary>([^(]+) \([0-9]+\)<\/summary>/, arr)
         if (arr[1] != "" && (arr[1] ~ /\// || arr[1] ~ /\./)) {
             current_file = arr[1]
@@ -428,6 +455,15 @@ if echo "$REVIEW_BODY" | grep -q "Outside diff range"; then
 
     # Extract file path from file-specific summary
     in_outside_diff_section && /<summary>.*\([0-9]+\)<\/summary>/ {
+        # Output any pending block before changing files
+        if (in_block && content != "") {
+            if (first != 1) printf ","
+            output_block()
+            first = 0
+            in_block = 0
+            content = ""
+        }
+
         match($0, /<summary>([^(]+) \([0-9]+\)<\/summary>/, arr)
         if (arr[1] != "" && (arr[1] ~ /\// || arr[1] ~ /\./)) {
             current_file = arr[1]
