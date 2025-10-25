@@ -303,6 +303,10 @@ if echo "$REVIEW_BODY" | grep -q "Nitpick comments"; then
         gsub(/\n\n+/, "\n", content)
         gsub(/\n+$/, "", content)
 
+        # Escape backslashes first, then quotes, then newlines
+        gsub(/\\/, "\\\\", title)
+        gsub(/\\/, "\\\\", content)
+        gsub(/\\/, "\\\\", current_file)
         gsub(/"/, "\\\"", title)
         gsub(/"/, "\\\"", content)
         gsub(/"/, "\\\"", current_file)
@@ -415,6 +419,10 @@ if echo "$REVIEW_BODY" | grep -q "Duplicate comments"; then
         gsub(/\n\n+/, "\n", content)
         gsub(/\n+$/, "", content)
 
+        # Escape backslashes first, then quotes, then newlines
+        gsub(/\\/, "\\\\", title)
+        gsub(/\\/, "\\\\", content)
+        gsub(/\\/, "\\\\", current_file)
         gsub(/"/, "\\\"", title)
         gsub(/"/, "\\\"", content)
         gsub(/"/, "\\\"", current_file)
@@ -527,6 +535,10 @@ if echo "$REVIEW_BODY" | grep -q "Outside diff range"; then
         gsub(/\n\n+/, "\n", content)
         gsub(/\n+$/, "", content)
 
+        # Escape backslashes first, then quotes, then newlines
+        gsub(/\\/, "\\\\", title)
+        gsub(/\\/, "\\\\", content)
+        gsub(/\\/, "\\\\", current_file)
         gsub(/"/, "\\\"", title)
         gsub(/"/, "\\\"", content)
         gsub(/"/, "\\\"", current_file)
