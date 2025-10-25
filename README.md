@@ -63,6 +63,18 @@ Process CodeRabbit AI comments from GitHub PR with priority-based handling.
 
 Finds and processes CodeRabbit AI comments from the current branch's GitHub PR, presenting them in priority order for user approval before execution.
 
+**Usage:**
+- **Default**: Extracts comments from latest commit automatically
+- **With parameter**: Provide review ID, review URL, or commit SHA to target specific review
+  - Review ID: `3379917343`
+  - Review URL: `https://github.com/owner/repo/pull/123#pullrequestreview-3379917343`
+  - Commit SHA: `abc1234...`
+
+**Features:**
+- Priority-based comment handling (HIGH → MEDIUM → LOW)
+- Categorizes comments: actionable, nitpicks, duplicates, outside diff range
+- Automatic detection of input type (review ID/URL/commit SHA)
+
 ### github_review_handler
 
 Process human reviewer comments from GitHub PR.

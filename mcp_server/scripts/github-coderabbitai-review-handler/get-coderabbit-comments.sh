@@ -1,56 +1,90 @@
 #!/bin/bash
 
 # Script to extract CodeRabbit comments for AI processing
-# Usage: get-coderabbit-comments.sh <pr-info-script-path>
-#   OR:  get-coderabbit-comments.sh <owner/repo> <pr_number> [commit_sha]
+# Usage: get-coderabbit-comments.sh <pr-info-script-path> [commit_sha|review_id|review_url]
+#   OR:  get-coderabbit-comments.sh <owner/repo> <pr_number> [commit_sha|review_id|review_url]
 
-if [ $# -eq 1 ]; then
-  # Single argument: path to pr-info script
-  PR_INFO_SCRIPT="$1"
+if [ $# -eq 1 ] || [ $# -eq 2 ]; then
+  # One or two arguments: check if first arg is a file (pr-info script)
+  if [ -f "$1" ]; then
+    # First argument is pr-info script path
+    PR_INFO_SCRIPT="$1"
+    TARGET_PARAM="${2:-}"  # Optional second parameter (commit_sha, review_id, or review_url)
 
-  if [ ! -f "$PR_INFO_SCRIPT" ]; then
-    echo "❌ Error: PR info script not found: $PR_INFO_SCRIPT"
-    exit 1
+    # Call the pr-info script and parse output
+    PR_INFO=$("$PR_INFO_SCRIPT")
+    if [ $? -ne 0 ]; then
+      echo "❌ Error: Failed to get PR information" >&2
+      exit 1
+    fi
+
+    # Parse the output (space-separated: REPO_FULL_NAME PR_NUMBER)
+    REPO_FULL_NAME=$(echo "$PR_INFO" | cut -d' ' -f1)
+    PR_NUMBER=$(echo "$PR_INFO" | cut -d' ' -f2)
+  else
+    # First argument is owner/repo, second is PR number
+    REPO_FULL_NAME="$1"
+    PR_NUMBER="$2"
+    TARGET_PARAM=""
   fi
 
-  # Call the pr-info script and parse output
-  PR_INFO=$("$PR_INFO_SCRIPT")
-  if [ $? -ne 0 ]; then
-    echo "❌ Error: Failed to get PR information"
-    exit 1
-  fi
-
-  # Parse the output (space-separated: REPO_FULL_NAME PR_NUMBER)
-  REPO_FULL_NAME=$(echo "$PR_INFO" | cut -d' ' -f1)
-  PR_NUMBER=$(echo "$PR_INFO" | cut -d' ' -f2)
-  COMMIT_SHA=""
-
-elif [ $# -eq 2 ] || [ $# -eq 3 ]; then
-  # Two or three arguments: direct repo, PR number, and optional commit SHA
+elif [ $# -eq 3 ]; then
+  # Three arguments: owner/repo, PR number, and target
   REPO_FULL_NAME="$1"
   PR_NUMBER="$2"
-  COMMIT_SHA="${3:-}"  # Optional third parameter
+  TARGET_PARAM="$3"
 
 else
-  echo "Usage: $0 <pr-info-script-path>"
-  echo "   OR: $0 <owner/repo> <pr_number> [commit_sha]"
+  echo "Usage: $0 <pr-info-script-path> [commit_sha|review_id|review_url]" >&2
+  echo "   OR: $0 <owner/repo> <pr_number> [commit_sha|review_id|review_url]" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  $0 /path/to/get-pr-info.sh                      # Latest commit" >&2
+  echo "  $0 /path/to/get-pr-info.sh 3379917343           # Specific review ID" >&2
+  echo "  $0 owner/repo 123 abc1234...                    # Use specific commit SHA" >&2
+  echo "  $0 owner/repo 123 3379917343                    # Use review ID" >&2
+  echo "  $0 owner/repo 123 https://github.com/.../pull/123#pullrequestreview-3379917343" >&2
   exit 1
 fi
 
 OWNER=$(echo "$REPO_FULL_NAME" | cut -d'/' -f1)
 REPO=$(echo "$REPO_FULL_NAME" | cut -d'/' -f2)
 
-# Step 1: Get the target commit SHA
-if [ -n "$COMMIT_SHA" ]; then
-  # Use provided commit SHA
-  LATEST_COMMIT_SHA="$COMMIT_SHA"
+# Step 1: Determine target commit SHA from parameter
+if [ -n "$TARGET_PARAM" ]; then
+  # Check if it's a review URL
+  if [[ "$TARGET_PARAM" =~ pullrequestreview-([0-9]+) ]]; then
+    REVIEW_ID="${BASH_REMATCH[1]}"
+    echo "📝 Extracting commit from review URL (review ID: $REVIEW_ID)..." >&2
+    LATEST_COMMIT_SHA=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID" --jq '.commit_id')
+    if [ -z "$LATEST_COMMIT_SHA" ] || [ "$LATEST_COMMIT_SHA" == "null" ]; then
+      echo "❌ Error: Could not retrieve commit SHA from review $REVIEW_ID" >&2
+      exit 1
+    fi
+    echo "✅ Using commit from review: $LATEST_COMMIT_SHA" >&2
+  # Check if it's a numeric review ID
+  elif [[ "$TARGET_PARAM" =~ ^[0-9]+$ ]]; then
+    REVIEW_ID="$TARGET_PARAM"
+    echo "📝 Extracting commit from review ID: $REVIEW_ID..." >&2
+    LATEST_COMMIT_SHA=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID" --jq '.commit_id')
+    if [ -z "$LATEST_COMMIT_SHA" ] || [ "$LATEST_COMMIT_SHA" == "null" ]; then
+      echo "❌ Error: Could not retrieve commit SHA from review $REVIEW_ID" >&2
+      exit 1
+    fi
+    echo "✅ Using commit from review: $LATEST_COMMIT_SHA" >&2
+  # Otherwise treat as commit SHA
+  else
+    LATEST_COMMIT_SHA="$TARGET_PARAM"
+    echo "📝 Using provided commit SHA: $LATEST_COMMIT_SHA" >&2
+  fi
 else
   # Get the latest commit SHA from PR
   LATEST_COMMIT_SHA=$(gh api "/repos/$OWNER/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')
+  echo "📝 Using latest commit from PR: $LATEST_COMMIT_SHA" >&2
 fi
 
 if [ -z "$LATEST_COMMIT_SHA" ]; then
-  echo "❌ Error: Could not retrieve commit SHA"
+  echo "❌ Error: Could not retrieve commit SHA" >&2
   exit 1
 fi
 
