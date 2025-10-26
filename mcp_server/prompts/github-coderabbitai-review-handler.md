@@ -164,12 +164,16 @@ Proceed directly to execution (no confirmation needed since user already approve
 3. **Post-execution workflow (PHASES 3 & 4 - MANDATORY CHECKPOINTS):**
 
    **PHASE 3: Testing & Commit**
-   - **STEP 1** (REQUIRED): Use Task tool to run all tests
-   - **STEP 2** (REQUIRED): If tests pass, MUST ask: "All tests pass. Do you want to commit the changes? (yes/no)"
-     - If user says "yes": Use Task tool to commit changes with descriptive message
-     - If user says "no": Acknowledge and proceed to Phase 4 checkpoint (ask about push anyway)
-   - **STEP 3** (REQUIRED): If tests fail, use Task tool to analyze and fix failures, then re-run tests until they pass
-   - **CHECKPOINT**: Must reach this point before Phase 4 - commit confirmation MUST be asked
+   - **STEP 1** (REQUIRED): Use Task tool to run all tests WITH coverage
+   - **STEP 2** (REQUIRED): Check BOTH test results AND coverage results:
+     - **If tests pass AND coverage passes**: MUST ask: "All tests and coverage pass. Do you want to commit the changes? (yes/no)"
+       - If user says "yes": Use Task tool to commit changes with descriptive message
+       - If user says "no": Acknowledge and proceed to Phase 4 checkpoint (ask about push anyway)
+     - **If tests pass BUT coverage fails**: This is a FAILURE - do NOT ask about commit yet
+       - Use Task tool to analyze coverage gaps and add missing tests
+       - Re-run tests with coverage until BOTH pass
+     - **If tests fail**: Use Task tool to analyze and fix test failures, then re-run until tests pass
+   - **CHECKPOINT**: Tests AND coverage BOTH pass, AND commit confirmation asked (even if user declined)
 
    **PHASE 4: Push to Remote**
    - **STEP 1** (REQUIRED): After successful commit (or commit decline), MUST ask: "Changes committed successfully. Do you want to push the changes to remote? (yes/no)"
@@ -191,10 +195,13 @@ This workflow has **4 MANDATORY PHASES** that MUST be executed in order. Each ph
 - **CHECKPOINT**: ALL approved tasks have been completed
 
 **PHASE 3: Testing & Commit Phase**
-- **MANDATORY STEP 1**: Run tests via Task tool
-- **MANDATORY STEP 2**: If tests pass, MUST ask user: "All tests pass. Do you want to commit the changes? (yes/no)"
-- **MANDATORY STEP 3**: If user says yes, use Task tool to commit changes
-- **CHECKPOINT**: Tests completed AND commit confirmation asked (even if user declined)
+- **MANDATORY STEP 1**: Run tests WITH coverage via Task tool
+- **MANDATORY STEP 2**: Check BOTH tests AND coverage - only proceed if BOTH pass
+  - If tests pass BUT coverage fails → FIX coverage gaps (this is a FAILURE)
+  - If tests fail → FIX test failures
+- **MANDATORY STEP 3**: Once BOTH pass, MUST ask user: "All tests and coverage pass. Do you want to commit the changes? (yes/no)"
+- **MANDATORY STEP 4**: If user says yes, use Task tool to commit changes
+- **CHECKPOINT**: Tests AND coverage BOTH pass, AND commit confirmation asked (even if user declined)
 
 **PHASE 4: Push Phase**
 - **MANDATORY STEP 1**: After successful commit, MUST ask user: "Changes committed successfully. Do you want to push the changes to remote? (yes/no)"
@@ -208,4 +215,4 @@ This workflow has **4 MANDATORY PHASES** that MUST be executed in order. Each ph
 - **NEVER assume** - always ask for confirmation, never assume user wants to commit/push
 - **COMPLETE each phase fully** before starting the next phase
 
-**If tests fail**: Use Task tool to analyze and fix failures, then re-run tests until they pass before proceeding to Phase 3's commit confirmation.
+**If tests OR coverage fail**: Use Task tool to analyze and fix failures (add tests for coverage gaps), then re-run tests with coverage until BOTH pass before proceeding to Phase 3's commit confirmation.
